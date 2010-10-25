@@ -1,11 +1,40 @@
 $:.unshift File.expand_path('../vendor', __FILE__)
 require 'thor'
 require 'bundler'
+require 'rbconfig'
 
 module Bundler
   class GemHelper
     def self.install_tasks(opts = nil)
-      dir = File.dirname(Rake.application.rakefile_location)
+      # Determine the rakefile's location, don't use
+      # Rake.application.rakefile_location since it's buggy
+      
+      # Ignore any directory in the pathname since it's relative to whatever
+      # directory rake started in - might not be the same as we're in now
+      rakefile = File.basename(Rake.application.rakefile)
+      rakefile_loc = nil
+      on_win = Config::CONFIG["host_os"] =~ /mswin|mingw/
+      caller.each do |frame|
+        if on_win
+          # On Windows Rake.application.rakefile might be lowercase even if the
+          # real filename isn't, luckily case doesn't matter
+          frame.downcase!
+          # Ruby may use either native or UNIX path separators, deal with both
+          frame.gsub!("\\", "/")
+          # Make sure this is lowercase also
+          rakefile.downcase!
+        end
+
+        m = /^((:?.*\/)?#{rakefile}):\d+(:?:.+)?$/.match(frame)
+        if not m.nil?
+          rakefile_loc = m[1]
+        end
+      end
+      if rakefile_loc.nil?
+        raise RuntimeError, "Unable to determine rakefile location"
+      end
+
+      dir = File.dirname(rakefile_loc)
       self.new(dir, opts && opts[:name]).install
     end
 
