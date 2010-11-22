@@ -94,7 +94,7 @@ describe "bundle install across platforms" do
       gem "rack", "1.0.0"
     G
 
-    bundle "install --path vendor"
+    bundle "install --path vendor/bundle"
 
     vendored_gems("gems/rack-1.0.0").should exist
   end
@@ -106,12 +106,12 @@ describe "bundle install across platforms" do
       gem "rack", "1.0.0"
     G
 
-    bundle "install --path vendor"
+    bundle "install --path vendor/bundle"
 
     new_version = Gem::ConfigMap[:ruby_version] == "1.8" ? "1.9.1" : "1.8"
-    FileUtils.mv(vendored_gems, bundled_app("vendor/#{Gem.ruby_engine}/#{new_version}"))
+    FileUtils.mv(vendored_gems, bundled_app("vendor/bundle/#{Gem.ruby_engine}/#{new_version}"))
 
-    bundle "install ./vendor"
+    bundle "install --path ./vendor/bundle"
     vendored_gems("gems/rack-1.0.0").should exist
   end
 end
@@ -132,25 +132,8 @@ describe "bundle install with platform conditionals" do
   it "does not install gems tagged w/ another platforms" do
     install_gemfile <<-G
       source "file://#{gem_repo1}"
-
       gem "rack"
-
       platforms :#{not_local_tag} do
-        gem "nokogiri"
-      end
-    G
-
-    should_be_installed     "rack 1.0"
-    should_not_be_installed "nokogiri 1.4.2"
-  end
-
-  it "does not install gems tagged w/ another platform" do
-    install_gemfile <<-G
-      source "file://#{gem_repo1}"
-
-      gem "rack"
-
-      platform :#{not_local_tag} do
         gem "nokogiri"
       end
     G
@@ -192,4 +175,34 @@ describe "bundle install with platform conditionals" do
     G
     should_not_be_installed "nokogiri 1.4.2"
   end
+
+  it "does not blow up on sources with all platform-excluded specs" do
+    git = build_git "foo"
+
+    install_gemfile <<-G
+      platform :#{not_local_tag} do
+        gem "foo", :git => "#{lib_path('foo-1.0')}"
+      end
+    G
+
+    bundle :show, :exitstatus => true
+    exitstatus.should == 0
+  end
+
 end
+
+describe "when a gem has an architecture in its platform" do
+  it "still installs correctly" do
+    simulate_platform mswin
+
+    gemfile <<-G
+      # Try to install gem with nil arch
+      source "http://localgemserver.test/"
+      gem "rcov"
+    G
+
+    bundle :install, :fakeweb => "windows"
+    should_be_installed "rcov 1.0.0"
+  end
+end
+

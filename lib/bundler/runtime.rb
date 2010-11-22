@@ -101,7 +101,7 @@ module Bundler
         spec = Gem::Format.from_file_by_path(path).spec
 
         resolve.any? do |s|
-          s.name == spec.name && s.version == spec.version
+          s.name == spec.name && s.version == spec.version && !s.source.is_a?(Bundler::Source::Git)
         end
       end
 
@@ -112,6 +112,55 @@ module Bundler
           Bundler.ui.info "  * #{File.basename(path)}"
           File.delete(path)
         end
+      end
+    end
+
+    def clean
+      return false if Bundler.settings[:path] == nil
+
+      gem_bins             = Dir["#{Gem.dir}/bin/*"]
+      git_dirs             = Dir["#{Gem.dir}/bundler/gems/*"]
+      gem_dirs             = Dir["#{Gem.dir}/gems/*"]
+      spec_gem_paths       = specs.collect {|spec| spec.full_gem_path }
+      spec_gem_executables = specs.collect do |spec|
+        spec.executables.collect do |executable|
+          "#{Gem.dir}/#{spec.bindir}/#{executable}"
+        end
+      end.flatten
+      stale_gem_bins = gem_bins - spec_gem_executables
+      stale_git_dirs = git_dirs - spec_gem_paths
+      stale_gem_dirs = gem_dirs - spec_gem_paths
+
+      stale_gem_bins.each {|bin| FileUtils.rm(bin) }
+      stale_gem_dirs.collect do |gem_dir|
+        full_name = Pathname.new(gem_dir).basename.to_s
+
+        FileUtils.rm_rf(gem_dir)
+        specification_file = "#{Gem.dir}/specifications/#{full_name}.gemspec"
+        FileUtils.rm(specification_file) if File.exists?(specification_file)
+
+        parts   = full_name.split('-')
+        name    = parts[0..-2].join('-')
+        version = parts.last
+        output  = "#{name} (#{version})"
+
+        Bundler.ui.info "Removing #{output}"
+
+        output
+      end + stale_git_dirs.collect do |gem_dir|
+        full_name = Pathname.new(gem_dir).basename.to_s
+
+        FileUtils.rm_rf(gem_dir)
+
+        parts    = full_name.split('-')
+        name     = parts[0..-3].join('-')
+        revision = parts[-1]
+        version  = parts[-2]
+        output   = "#{name} (#{version} #{revision})"
+
+        Bundler.ui.info "Removing #{output}"
+
+        output
       end
     end
 

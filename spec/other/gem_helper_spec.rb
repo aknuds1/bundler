@@ -73,7 +73,9 @@ describe "Bundler::GemHelper tasks" do
         @helper.should_receive(:build_gem) do
           # write an invalid gem file, so we can simulate install failure...
           FileUtils.mkdir_p(File.join(@app.to_s, 'pkg'))
-          File.open("#{@app.to_s}/pkg/test-0.0.1.gem", 'w'){|f| f << "not actually a gem"}
+          path = "#{@app.to_s}/pkg/test-0.0.1.gem"
+          File.open(path, 'w'){|f| f << "not actually a gem"}
+          path
         end
         proc { @helper.install_gem }.should raise_error
       end
@@ -102,8 +104,8 @@ describe "Bundler::GemHelper tasks" do
 
       it "releases" do
         mock_build_message
-        mock_confirm_message /Tagged v0.0.1/
-        mock_confirm_message "Pushed git commits and tags"
+        mock_confirm_message(/Tagged v0.0.1/)
+        mock_confirm_message("Pushed git commits and tags")
 
         @helper.should_receive(:rubygem_push).with(bundled_app('test/pkg/test-0.0.1.gem').to_s)
 

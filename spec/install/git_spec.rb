@@ -68,7 +68,7 @@ describe "bundle install with git sources" do
     end
 
     it "still works after moving the application directory" do
-      bundle "install vendor"
+      bundle "install --path vendor/bundle"
       FileUtils.mv bundled_app, tmp('bundled_app.bck')
 
       Dir.chdir tmp('bundled_app.bck')
@@ -76,7 +76,7 @@ describe "bundle install with git sources" do
     end
 
     it "can still install after moving the application directory" do
-      bundle "install vendor"
+      bundle "install --path vendor/bundle"
       FileUtils.mv bundled_app, tmp('bundled_app.bck')
 
       update_git "foo", "1.1", :path => lib_path("foo-1.0")
@@ -118,16 +118,34 @@ describe "bundle install with git sources" do
   end
 
   describe "when specifying a revision" do
-    it "works" do
+    before(:each) do
       build_git "foo"
       @revision = revision_for(lib_path("foo-1.0"))
       update_git "foo"
+    end
 
+    it "works" do
       install_gemfile <<-G
         git "#{lib_path('foo-1.0')}", :ref => "#{@revision}" do
           gem "foo"
         end
       G
+
+      run <<-RUBY
+        require 'foo'
+        puts "WIN" unless defined?(FOO_PREV_REF)
+      RUBY
+
+      out.should == "WIN"
+    end
+
+    it "works when the revision is a symbol" do
+      install_gemfile <<-G
+        git "#{lib_path('foo-1.0')}", :ref => #{@revision.to_sym.inspect} do
+          gem "foo"
+        end
+      G
+      check err.should == ""
 
       run <<-RUBY
         require 'foo'

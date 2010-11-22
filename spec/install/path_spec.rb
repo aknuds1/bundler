@@ -46,6 +46,30 @@ describe "bundle install with explicit source paths" do
     should_be_installed("foo 1.0")
   end
 
+  it "expands paths relative to Bundler.root" do
+    build_lib "foo", :path => bundled_app("foo-1.0")
+
+    install_gemfile <<-G
+      gem 'foo', :path => "./foo-1.0"
+    G
+
+    bundled_app("subdir").mkpath
+    Dir.chdir(bundled_app("subdir")) do
+      should_be_installed("foo 1.0")
+    end
+  end
+
+  it "expands paths when comparing locked paths to Gemfile paths" do
+    build_lib "foo", :path => bundled_app("foo-1.0")
+
+    install_gemfile <<-G
+      gem 'foo', :path => File.expand_path("../foo-1.0", __FILE__)
+    G
+
+    bundle "install --frozen", :exitstatus => true
+    exitstatus.should == 0
+  end
+
   it "installs dependencies from the path even if a newer gem is available elsewhere" do
     system_gems "rack-1.0.0"
 
@@ -126,7 +150,7 @@ describe "bundle install with explicit source paths" do
       gemspec :path => "#{lib_path("foo")}"
     G
 
-    @exitstatus.should == 15
+    check exitstatus.should == 15
     out.should =~ /There are multiple gemspecs/
   end
 
@@ -287,12 +311,12 @@ describe "bundle install with explicit source paths" do
       end
 
       install_gemfile <<-G
-        source "http://#{gem_repo1}"
+        source "file://#{gem_repo1}"
         gem "bar", :git => "#{lib_path('bar')}"
       G
 
       install_gemfile <<-G
-        source "http://#{gem_repo1}"
+        source "file://#{gem_repo1}"
         gem "bar", :path => "#{lib_path('bar')}"
       G
 
@@ -306,7 +330,7 @@ describe "bundle install with explicit source paths" do
       end
 
       install_gemfile <<-G
-        source "http://#{gem_repo1}"
+        source "file://#{gem_repo1}"
         gem "bar"
         path "#{lib_path('foo')}" do
           gem "foo"
@@ -316,7 +340,7 @@ describe "bundle install with explicit source paths" do
       build_lib "bar", "1.0", :path => lib_path("foo/bar")
 
       install_gemfile <<-G
-        source "http://#{gem_repo1}"
+        source "file://#{gem_repo1}"
         path "#{lib_path('foo')}" do
           gem "foo"
           gem "bar"

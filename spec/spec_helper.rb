@@ -18,7 +18,7 @@ else
 end
 
 Dir["#{File.expand_path('../support', __FILE__)}/*.rb"].each do |file|
-  require file
+  require file unless file =~ /fakeweb\/.*\.rb/
 end
 
 $debug    = false
@@ -27,6 +27,7 @@ $show_err = true
 Spec::Rubygems.setup
 FileUtils.rm_rf(Spec::Path.gem_repo1)
 ENV['RUBYOPT'] = "-I#{Spec::Path.root}/spec/support/rubygems_hax"
+ENV['BUNDLE_SPEC_RUN'] = "true"
 
 RSpec.configure do |config|
   config.include Spec::Builders
@@ -38,7 +39,7 @@ RSpec.configure do |config|
   config.include Spec::Platforms
   config.include Spec::Sudo
 
-  config.filter_run :focused => true
+  config.filter_run :focused => true unless ENV['CI']
   config.run_all_when_everything_filtered = true
   config.alias_example_to :fit, :focused => true
 
