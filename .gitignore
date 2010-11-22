@@ -1,6 +1,7 @@
 # system crap
 .DS_Store
 .*.swp
+*~
 
 # files created by running the specs
 tmp
